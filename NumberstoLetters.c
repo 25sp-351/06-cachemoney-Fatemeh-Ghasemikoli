@@ -14,12 +14,11 @@ char *memo[MEMOIZE_LIMIT]; // Memoization cache
 // Function to convert a number to its equivalent letter representation
 void number_to_letter(int num, char *buffer, int is_dollar) {
     if (num < 20) {
-        strncat(buffer, units[num], 256 - strlen(buffer) - 1);
+        snprintf(buffer + strlen(buffer), 256 - strlen(buffer), "%s", units[num]);
     } else if (num < 100) {
-        strncat(buffer, tens[num / 10], 256 - strlen(buffer) - 1);
+        snprintf(buffer + strlen(buffer), 256 - strlen(buffer), "%s", tens[num / 10]);
         if (num % 10) {
-            strncat(buffer, is_dollar ? "." : "-", 256 - strlen(buffer) - 1);
-            strncat(buffer, units[num % 10], 256 - strlen(buffer) - 1);
+            snprintf(buffer + strlen(buffer), 256 - strlen(buffer), "%s%s", is_dollar ? "." : "-", units[num % 10]);
         }
     } else {
         int divisor;
@@ -40,23 +39,27 @@ void number_to_letter(int num, char *buffer, int is_dollar) {
         }
 
         number_to_letter(num / divisor, buffer, is_dollar);
-        strncat(buffer, suffix, 256 - strlen(buffer) - 1);
+        snprintf(buffer + strlen(buffer), 256 - strlen(buffer), "%s", suffix);
 
         int remainder = num % divisor;
         if (remainder > 0) {
-            strncat(buffer, " ", 256 - strlen(buffer) - 1);
+            snprintf(buffer + strlen(buffer), 256 - strlen(buffer), " ");
             number_to_letter(remainder, buffer, is_dollar);
         }
     }
 }
 
-
 // Function to convert money to text
 const char* convert_money_to_text(int cents) {  
     if (cents < 0 || cents > MAX_INPUT_LIMIT) return "invalid amount";
-    if (cents < MEMOIZE_LIMIT && memo[cents]) return memo[cents];
+    
+    // Check if result is in memoization cache
+    if (cents < MEMOIZE_LIMIT && memo[cents]) {
+        printf("Retrieving from memo: ");
+        return memo[cents];
+    }
 
-    size_t buffer_size = INITIAL_BUFFER_SIZE; // Initial buffer size
+    size_t buffer_size = INITIAL_BUFFER_SIZE;
     char *result = malloc(buffer_size);
     if (!result) {
         perror("Memory allocation failed");
@@ -67,7 +70,6 @@ const char* convert_money_to_text(int cents) {
     int dollars = cents / 100;
     int rem_cents = cents % 100;
 
-    // Ensure enough space for dollar conversion
     size_t needed = buffer_size + 20;
     result = realloc(result, needed);
     if (!result) {
@@ -79,12 +81,11 @@ const char* convert_money_to_text(int cents) {
         number_to_letter(dollars, result, 1);
         snprintf(result + strlen(result), needed - strlen(result), " dollar%s", (dollars > 1) ? "s" : "");
     } else {
-        strncat(result, "zero dollars", needed - strlen(result) - 1);
+        snprintf(result + strlen(result), needed - strlen(result), "zero dollars");
     }
 
-    strncat(result, " and ", needed - strlen(result) - 1);
+    snprintf(result + strlen(result), needed - strlen(result), " and ");
 
-    // Ensure enough space for cents conversion
     needed = strlen(result) + 20;
     result = realloc(result, needed);
     if (!result) {
@@ -96,14 +97,15 @@ const char* convert_money_to_text(int cents) {
         number_to_letter(rem_cents, result, 0);
         snprintf(result + strlen(result), needed - strlen(result), " cent%s", (rem_cents > 1) ? "s" : "");
     } else {
-        strncat(result, "zero cents", needed - strlen(result) - 1);
+        snprintf(result + strlen(result), needed - strlen(result), "zero cents");
     }
 
-    // Memoization storage (ensure index validity)
+    // Memoization storage
     if (cents < MEMOIZE_LIMIT) {
-        if (memo[cents]) free(memo[cents]);  // Free old memory if needed
-        memo[cents] = strdup(result); // Store result
+        if (memo[cents]) free(memo[cents]);
+        memo[cents] = strdup(result);
+        printf("Memoizing:  ");  // Print memoization message
     }
 
-    return result; 
+    return result;
 }
